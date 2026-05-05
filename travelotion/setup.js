@@ -1,58 +1,56 @@
-import { spawn } from 'child_process'
+import { spawn, exec } from 'child_process'
 import { writeFileSync, readFileSync } from 'fs'
-import { watch } from 'fs'
 
 const CLOUD_URL_MATCH = /https:\/\/[\w-]+\.trycloudflare\.com/
 
-function updateClient(url) {
-  const content = readFileSync('src/services/notionClient.js', 'utf8')
-  const newContent = content.replace(
-    /const API_URL = '.*'/,
-    `const API_URL = '${url}'`
-  )
-  writeFileSync('src/services/notionClient.js', newContent)
-  console.log('📝 Actualizado:', url)
+let serverPid = null
+let vitePid = null
+
+function killAll() {
+  exec('pkill -f "node server" || true')
+  exec('pkill -f vite || true')
 }
 
-function startServer() {
-  spawn('node', ['server.js'], { stdio: 'inherit', shell: true })
+function updateEnv(url) {
+  const content = readFileSync('.env', 'utf8')
+  const current = content.match(/NOTION_API_URL=(https:\/\/.*)/)?.[1]
+  
+  if (current !== url) {
+    const newContent = content.replace(/NOTION_API_URL=.*/m, `NOTION_API_URL=${url}`)
+    writeFileSync('.env', newContent)
+    console.log('📝 .env:', url)
+    console.log('🌐 ' + url + '/callback\n')
+    
+    console.log('🔄 Reiniciando...')
+    killAll()
+    setTimeout(startAll, 1500)
+  }
 }
 
-function startVite() {
-  spawn('npm', ['run', 'dev'], { stdio: 'inherit', shell: true })
+function startAll() {
+  console.log('🚀 Server + Vite...')
+  serverPid = spawn('node', ['server.js'], { stdio: 'inherit', shell: true })
+  setTimeout(() => {
+    vitePid = spawn('npm', ['run', 'dev'], { stdio: 'inherit', shell: true })
+  }, 1500)
 }
 
 function startTunnel() {
-  const tunnel = spawn('npx', ['cloudflared', 'tunnel', '--url', 'http://localhost:3000'], { 
-    stdio: 'pipe', 
-    shell: true 
-  })
-
+  const tunnel = spawn('npm', ['run', 'tunnel'], { stdio: 'pipe', shell: true })
+  
   tunnel.stdout.on('data', (data) => {
     const match = data.toString().match(CLOUD_URL_MATCH)
-    if (match) {
-      const url = match[0]
-      updateClient(url)
-      console.log('\n🌐 ' + url + '/callback\n')
-    }
+    if (match) updateEnv(match[0])
   })
 
   tunnel.stderr.on('data', (data) => {
     const match = data.toString().match(CLOUD_URL_MATCH)
-    if (match) {
-      const url = match[0]
-      updateClient(url)
-      console.log('\n🌐 ' + url + '/callback\n')
-    }
+    if (match) updateEnv(match[0])
   })
 
-  tunnel.on('exit', () => process.exit(1))
+  tunnel.on('exit', () => setTimeout(startTunnel, 2000))
 }
 
-console.log('🚀 Starting...')
-startServer()
-
-setTimeout(() => {
-  startVite()
-  startTunnel()
-}, 2000)
+console.log('🎬 Travelotion Setup\n')
+startAll()
+setTimeout(startTunnel, 3000)

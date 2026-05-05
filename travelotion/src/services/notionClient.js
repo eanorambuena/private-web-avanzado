@@ -1,4 +1,4 @@
-const API_URL = 'https://thus-sufficient-diet-trainers.trycloudflare.com'
+const API_URL = import.meta.env.VITE_API_URL || 'https://mortgages-settings-deadline-politics.trycloudflare.com'
 
 let accessToken = localStorage.getItem('notion_token')
 let databaseId = localStorage.getItem('notion_database_id')

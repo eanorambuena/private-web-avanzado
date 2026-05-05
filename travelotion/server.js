@@ -14,12 +14,23 @@ const __dirname = dirname(__filename)
 dotenv.config({ path: path.resolve(__dirname, '.env') })
 
 const app = express()
-app.use(cors({ origin: true, credentials: true }))
+
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
+  res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200)
+  }
+  next()
+})
+
 app.use(express.json())
 
 const clientId = process.env.NOTION_CLIENT_ID
 const clientSecret = process.env.NOTION_CLIENT_SECRET
-const redirectUri = process.env.NOTION_REDIRECT_URI || 'http://localhost:3000/callback'
+const apiUrl = process.env.NOTION_API_URL || 'http://localhost:3000'
+const redirectUri = apiUrl + '/callback'
 
 let notionClient = null
 let currentAccessToken = null

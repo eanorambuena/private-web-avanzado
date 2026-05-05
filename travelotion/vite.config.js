@@ -1,11 +1,11 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { readFileSync } from 'fs'
 
-export default defineConfig(({ mode }) => {
-  const env = readFileSync('.env', 'utf8')
-  const matches = env.match(/NOTION_REDIRECT_URI=(https:\/\/.*)\/callback/)
-  const apiUrl = matches ? matches[1] : 'http://localhost:3000'
+export default defineConfig(() => {
+  const envContent = readFileSync('.env', 'utf8')
+  const match = envContent.match(/NOTION_API_URL=(https:\/\/.*)/)
+  const apiUrl = match ? match[1] : 'http://localhost:3000'
   
   return {
     plugins: [vue()],
@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_API_URL': JSON.stringify(apiUrl)
     },
     server: {
+      watch: {
+        ignored: ['**/.env']
+      },
       proxy: {
         '/oauth-url': 'http://localhost:3000',
         '/auth': 'http://localhost:3000',

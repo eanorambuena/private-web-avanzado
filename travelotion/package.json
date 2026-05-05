@@ -4,10 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --logLevel warning",
     "build": "vite build",
     "preview": "vite preview",
-    "server": "node server.js"
+    "server": "node server.js",
+    "tunnel": "npx cloudflared tunnel --url http://localhost:3000"
   },
   "dependencies": {
     "@notionhq/client": "^5.20.0",
