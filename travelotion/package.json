@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "node setup.js",
     "dev": "vite --logLevel warning",
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server.js",
-    "tunnel": "npx cloudflared tunnel --url http://localhost:3000"
+    "tunnel": "npx cloudflared tunnel --url http://localhost:5173",
+    "start": "node setup.js"
   },
   "dependencies": {
     "@notionhq/client": "^5.20.0",

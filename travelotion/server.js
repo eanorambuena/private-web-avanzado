@@ -39,10 +39,10 @@ let userId = null
 
 function exchangeCodeForToken(code) {
   return new Promise((resolve, reject) => {
-    const data = new URLSearchParams({
+    const encoded = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+    
+    const data = JSON.stringify({
       grant_type: 'authorization_code',
-      client_id: clientId,
-      client_secret: clientSecret,
       code: code,
       redirect_uri: redirectUri,
     })
@@ -52,7 +52,8 @@ function exchangeCodeForToken(code) {
       path: '/v1/oauth/token',
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${encoded}`,
       },
     }
 
@@ -60,6 +61,8 @@ function exchangeCodeForToken(code) {
       let body = ''
       res.on('data', chunk => body += chunk)
       res.on('end', () => {
+        console.log('Token response status:', res.statusCode)
+        console.log('Token response body:', body)
         try {
           resolve(JSON.parse(body))
         } catch (e) {
@@ -69,38 +72,43 @@ function exchangeCodeForToken(code) {
     })
 
     req.on('error', reject)
-    req.write(data.toString())
+    req.write(data)
     req.end()
   })
 }
 
-app.get('/callback', async (req, res) => {
+app.get('/api/callback', async (req, res) => {
   const { code, error } = req.query
 
   if (error) {
-    return res.redirect(`/login?error=${error}`)
+    return res.status(400).json({ error })
   }
 
   if (!code) {
-    return res.redirect('/login?error=no_code')
+    return res.status(400).json({ error: 'no_code' })
   }
 
   try {
     const tokenData = await exchangeCodeForToken(code)
     
+    if (!tokenData.access_token) {
+      console.error('Token exchange failed:', tokenData)
+      return res.status(400).json({ error: 'token_failed' })
+    }
+    
     currentAccessToken = tokenData.access_token
-    userId = tokenData.owner.user.id
+    userId = tokenData.owner?.user?.id || null
     
     notionClient = new Client({ auth: currentAccessToken })
     
-    res.redirect(`/login?success=true&token=${encodeURIComponent(currentAccessToken)}`)
+    res.json({ token: currentAccessToken, user: tokenData.owner })
   } catch (error) {
     console.error('Error exchange:', error.message)
-    res.redirect(`/login?error=exchange_failed`)
+    res.status(500).json({ error: 'exchange_failed' })
   }
 })
 
-app.post('/auth', (req, res) => {
+app.post('/api/auth', (req, res) => {
   const { accessToken, databaseId: dbId } = req.body
   if (!accessToken) {
     return res.status(400).json({ error: 'accessToken requerido' })
@@ -115,7 +123,7 @@ app.get('/api-url', (req, res) => {
   res.send(redirectUri.replace('/callback', ''))
 })
 
-app.get('/oauth-url', (req, res) => {
+app.get('/api/oauth-url', (req, res) => {
   if (!clientId) {
     return res.status(500).json({ error: 'NOTION_CLIENT_ID no configurado' })
   }
@@ -129,7 +137,7 @@ app.get('/oauth-url', (req, res) => {
   res.json({ url: authUrl.toString() })
 })
 
-app.get('/me', async (req, res) => {
+app.get('/api/me', async (req, res) => {
   if (!notionClient) {
     return res.status(401).json({ error: 'No autenticado' })
   }
@@ -141,7 +149,7 @@ app.get('/me', async (req, res) => {
   }
 })
 
-app.get('/databases', async (req, res) => {
+app.get('/api/databases', async (req, res) => {
   if (!notionClient) {
     return res.status(401).json({ error: 'No autenticado' })
   }
@@ -155,7 +163,7 @@ app.get('/databases', async (req, res) => {
   }
 })
 
-app.post('/set-database', async (req, res) => {
+app.post('/api/set-database', async (req, res) => {
   const { databaseId: dbId } = req.body
   if (!dbId) {
     return res.status(400).json({ error: 'databaseId requerido' })
@@ -164,7 +172,7 @@ app.post('/set-database', async (req, res) => {
   res.json({ success: true })
 })
 
-app.get('/pages', async (req, res) => {
+app.get('/api/pages', async (req, res) => {
   if (!notionClient || !databaseId) {
     return res.status(401).json({ error: 'No autenticado' })
   }
@@ -176,7 +184,7 @@ app.get('/pages', async (req, res) => {
   }
 })
 
-app.post('/pages', async (req, res) => {
+app.post('/api/pages', async (req, res) => {
   if (!notionClient || !databaseId) {
     return res.status(401).json({ error: 'No autenticado' })
   }
@@ -191,7 +199,7 @@ app.post('/pages', async (req, res) => {
   }
 })
 
-app.get('/pages/:id', async (req, res) => {
+app.get('/api/pages/:id', async (req, res) => {
   if (!notionClient || !databaseId) {
     return res.status(401).json({ error: 'No autenticado' })
   }
@@ -203,7 +211,7 @@ app.get('/pages/:id', async (req, res) => {
   }
 })
 
-app.patch('/pages/:id', async (req, res) => {
+app.patch('/api/pages/:id', async (req, res) => {
   if (!notionClient || !databaseId) {
     return res.status(401).json({ error: 'No autenticado' })
   }
@@ -218,7 +226,7 @@ app.patch('/pages/:id', async (req, res) => {
   }
 })
 
-app.delete('/pages/:id', async (req, res) => {
+app.delete('/api/pages/:id', async (req, res) => {
   if (!notionClient || !databaseId) {
     return res.status(401).json({ error: 'No autenticado' })
   }
@@ -232,5 +240,5 @@ app.delete('/pages/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`)
+  console.log(`Servidor API corriendo en http://localhost:${PORT}`)
 })

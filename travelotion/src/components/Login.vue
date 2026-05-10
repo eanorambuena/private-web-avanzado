@@ -6,7 +6,6 @@
       <button @click="loginWithNotion" class="login-btn">
         Iniciar sesión con Notion
       </button>
-      <p class="url-info">Configura en Notion: {{ apiUrl }}/callback</p>
     </div>
     
     <div v-else class="user-info">
@@ -22,36 +21,19 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { 
-  getOAuthUrl, 
   authenticate, 
   getUserInfo, 
   isAuthenticated,
   logout as doLogout,
-  getApiUrl
 } from '../services/notionClient'
 
 const authenticated = ref(false)
 const userName = ref('')
 const error = ref('')
 const success = ref(false)
-const apiUrl = ref('')
 
 onMounted(async () => {
-  apiUrl.value = getApiUrl()
-  
-  const params = new URLSearchParams(window.location.search)
-  
-  if (params.get('success') === 'true') {
-    const token = params.get('token')
-    if (token) {
-      await authenticate(token, '35701371e9728079ae5a000c8e7b96e1')
-      authenticated.value = true
-      success.value = true
-      window.history.replaceState({}, '', '/')
-    }
-  } else if (params.get('error')) {
-    error.value = params.get('error')
-  } else if (isAuthenticated()) {
+  if (isAuthenticated()) {
     try {
       const user = await getUserInfo()
       userName.value = user.name || 'Usuario'
@@ -64,8 +46,9 @@ onMounted(async () => {
 
 async function loginWithNotion() {
   try {
-    const url = await getOAuthUrl()
-    window.location.href = url
+    const res = await fetch('/api/oauth-url')
+    const data = await res.json()
+    window.location.href = data.url
   } catch (e) {
     error.value = e.message
   }

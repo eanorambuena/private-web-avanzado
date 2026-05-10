@@ -18,12 +18,14 @@ function updateEnv(url) {
   if (current !== url) {
     const newContent = content.replace(/NOTION_API_URL=.*/m, `NOTION_API_URL=${url}`)
     writeFileSync('.env', newContent)
-    console.log('📝 .env:', url)
-    console.log('🌐 ' + url + '/callback\n')
+    console.log('📝 .env actualizado:', url)
+    console.log('🌐 Callback URL: ' + url + '/callback\n')
     
-    console.log('🔄 Reiniciando...')
-    killAll()
-    setTimeout(startAll, 1500)
+    console.log('🔄 Reiniciando Express...')
+    exec('pkill -f "node server" || true')
+    setTimeout(() => {
+      serverPid = spawn('node', ['server.js'], { stdio: 'inherit', shell: true })
+    }, 1000)
   }
 }
 
